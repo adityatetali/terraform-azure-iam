@@ -36,7 +36,7 @@ variable "custom_roles" {
 }
 
 variable "role_assignments" {
-  description = "Map of role assignments to create"
+  description = "Map of role assignments to create. For each entry either set custom_role = true and provide role_name, or provide role_definition_id directly."
   type = map(object({
     scope              = string
     role_name          = optional(string, "")
@@ -49,69 +49,35 @@ variable "role_assignments" {
 
   validation {
     condition = alltrue([
-      for k, v in var.role_assignments : v.custom_role != null || v.role_definition_id != ""
+      for k, v in var.role_assignments : (
+        (v.custom_role == true && v.role_name != "") || (v.custom_role == false && v.role_definition_id != "")
+      )
     ])
-    error_message = "Either custom_role must be true with role_name, or role_definition_id must be provided."
+    error_message = "Each role assignment must either have custom_role = true with a non-empty role_name, or a non-empty role_definition_id."
   }
-}
-
-variable "resource_locks" {
-  description = "Map of resource locks to create"
-  type = map(object({
-    scope      = string
-    lock_level = string
-    notes      = optional(string, null)
-  }))
-  default = {}
 
   validation {
     condition = alltrue([
-      for k, v in var.resource_locks : contains(["CanNotDelete", "ReadOnly"], v.lock_level)
+      for k, v in var.role_assignments : (
+        v.scope != "" && v.principal_id != ""
+      )
     ])
-    error_message = "Lock level must be either 'CanNotDelete' or 'ReadOnly'."
+    error_message = "Each role assignment must define a non-empty 'scope' and 'principal_id'."
   }
 }
-
-variable "applications" {
-  description = "Map of Azure AD applications to create"
-  type = map(object({
-    description                   = optional(string, null)
-    sign_in_audience              = optional(string, "AzureADMyOrg")
-    tags                          = optional(map(string), {})
-    optional_claim_name           = optional(string, null)
-    optional_claim_essential      = optional(bool, false)
-    optional_claim_source         = optional(string, null)
-    homepage_url                  = optional(string, null)
-    logout_url                    = optional(string, null)
-    redirect_uris                 = optional(list(string), [])
-    access_token_issuance_enabled = optional(bool, false)
-    id_token_issuance_enabled     = optional(bool, false)
-    graph_permissions             = optional(list(string), [])
-    owners                        = optional(list(string), [])
-    password_expiry               = optional(string, "8760h")
-  }))
-  default = {}
-}
-
-variable "create_sp_passwords" {
-  description = "Whether to create passwords for service principals"
-  type        = bool
-  default     = false
-}
-
 variable "tags" {
-  description = << EOT 
-                Map of tags to assign all resources.
-                Must contain:
-                - Application
-                - Agency 
-                - Project_code
-                - Environment
-                - Owner
-                EOT
+  description = <<EOT
+Map of tags to assign all resources.
+Must contain:
+- Application
+- Agency
+- Project_code
+- Environment
+- Owner
+EOT
   type        = map(string)
   validation {
-    condition = all([
+    condition = alltrue([
       contains(keys(var.tags), "Application"),
       contains(keys(var.tags), "Agency"),
       contains(keys(var.tags), "Project_code"),
@@ -120,3 +86,21 @@ variable "tags" {
     ])
     error_message = "Tags must include Application, Agency, Project_code, Environment, and Owner."
   }
+}
+
+variable "subscription_id" {
+  description = "Optional subscription id to target for subscription-level operations. If null, uses current subscription."
+  type        = string
+  default     = null
+}
+
+variable "custom_roles_scope" {
+  description = "Scope for custom role creation: 'resource_group' or 'subscription'."
+  type        = string
+  default     = "resource_group"
+
+  validation {
+    condition     = contains(["resource_group", "subscription"], var.custom_roles_scope)
+    error_message = "custom_roles_scope must be either 'resource_group' or 'subscription'."
+  }
+}

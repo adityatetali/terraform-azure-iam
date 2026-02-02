@@ -33,28 +33,11 @@ output "role_assignment_ids" {
   value       = { for k, v in azurerm_role_assignment.role_assignments : k => v.id }
 }
 
-output "resource_lock_ids" {
-  description = "Map of resource lock IDs"
-  value       = { for k, v in azurerm_management_lock.resource_locks : k => v.id }
+output "subscription_id" {
+  description = "Subscription ID used (selected or current)"
+  value       = local.subscription_id
 }
-
-output "application_ids" {
-  description = "Map of Azure AD application IDs"
-  value       = { for k, v in azurerm_azuread_application.applications : k => v.application_id }
-}
-
-output "application_object_ids" {
-  description = "Map of Azure AD application object IDs"
-  value       = { for k, v in azurerm_azuread_application.applications : k => v.object_id }
-}
-
-output "service_principal_object_ids" {
-  description = "Map of Azure AD service principal object IDs"
-  value       = { for k, v in azurerm_azuread_service_principal.service_principals : k => v.object_id }
-}
-
-output "service_principal_passwords" {
-  description = "Map of service principal passwords (sensitive)"
-  value       = { for k, v in azurerm_azuread_service_principal_password.sp_passwords : k => v.value }
-  sensitive   = true
+output "subscription_scope" {
+  description = "Subscription scope used"
+  value       = local.subscription_scope
 }
