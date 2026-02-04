@@ -59,7 +59,8 @@ resource "azurerm_role_definition" "custom_roles" {
 resource "azurerm_role_assignment" "role_assignments" {
   for_each           = var.role_assignments
   scope              = each.value.scope
-  role_definition_id = each.value.custom_role ? azurerm_role_definition.custom_roles[each.value.role_name].id : each.value.role_definition_id
+  role_definition_name = each.value.custom_role ? each.value.role_name : null
+  role_definition_id   = each.value.custom_role ? null : each.value.role_definition_id
   principal_id       = each.value.principal_id
   principal_type     = each.value.principal_type
 }

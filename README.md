@@ -104,8 +104,43 @@ module "iam" {
 
 ---
 
+## Handling Existing Resources
+
+### Resource Group Already Exists
+
+If the resource group already exists in Azure and you want Terraform to manage it, you have two options:
+
+#### Option 1: Use Existing Resource Group (Recommended)
+Set `create_resource_group = false` in your module configuration:
+
+```hcl
+module "iam" {
+  source = "./"
+  
+  create_resource_group = false  # Reference existing RG
+  resource_group_name   = "rg-iam-prod"
+  location              = "Central US"
+  
+  # ... rest of configuration
+}
+```
+
+This tells the module to reference the existing resource group instead of attempting to create a new one.
+
+#### Option 2: Import Existing Resource Group into State
+If you want Terraform to track the existing resource group, run:
+
+```bash
+terraform import 'module.iam.azurerm_resource_group.this[0]' '/subscriptions/<SUBSCRIPTION_ID>/resourceGroups/<RG_NAME>'
+```
+
+Replace `<SUBSCRIPTION_ID>` and `<RG_NAME>` with your actual subscription ID and resource group name.
+
+---
+
 ## Notes 💡
 
 - Ensure tags include the required keys: `Application`, `Agency`, `Project_code`, `Environment`, `Owner`.
 - Custom roles can be created at the resource group or subscription scope via `custom_roles_scope`.
+- Valid values for `principal_type` are: `"User"`, `"Group"`, or `"ServicePrincipal"`. Do not use `"Member"`.
 
