@@ -1,5 +1,5 @@
 # terraform-azure-iam
-Repo to manage Azure IAM resources (module)
+Module to manage Azure IAM resources (module)
 
 ## Azure IAM Module
 
@@ -14,7 +14,7 @@ This Terraform module manages Azure Identity and Access Management (IAM) resourc
 
 ## Usage
 
-```hcl
+```
 module "iam" {
   source = "./"
 
@@ -138,9 +138,34 @@ Replace `<SUBSCRIPTION_ID>` and `<RG_NAME>` with your actual subscription ID and
 
 ---
 
+## Troubleshooting Guide
+
+### Role Assignment Errors
+
+**Error: `BadRequestFormat` or `UnmatchedPrincipalType`**
+
+This occurs when:
+1. The `principal_type` doesn't match the actual Azure AD object type
+2. The principal ID is incorrectly formatted
+
+**Solution:**
+- Verify the principal exists in Azure AD: `az ad user show --id <principal-id>` (for users) or `az ad sp show --id <principal-id>` (for service principals)
+- Ensure `principal_type` is one of: `"User"`, `"Group"`, or `"ServicePrincipal"`
+- Use the correct object ID (UUID format without hyphens or with hyphens consistently)
+
+### Custom Role Definition Issues
+
+**Error: `Unsupported attribute "resource_id"`**
+
+The `azurerm_role_definition` resource uses `id` (not `resource_id`) for output. The module correctly handles this by splitting the composite ID to extract the role definition ID for assignments.
+
+---
+
 ## Notes 💡
 
 - Ensure tags include the required keys: `Application`, `Agency`, `Project_code`, `Environment`, `Owner`.
 - Custom roles can be created at the resource group or subscription scope via `custom_roles_scope`.
 - Valid values for `principal_type` are: `"User"`, `"Group"`, or `"ServicePrincipal"`. Do not use `"Member"`.
+- The `principal_id` must be a valid Azure AD object ID. Use `az ad user list --query "[].id"` to find user IDs or `az ad sp list --query "[].id"` for service principals.
+- When using custom roles with role assignments, the module automatically extracts the correct role definition ID from the composite format.
 
