@@ -1,11 +1,17 @@
 terraform {
+  required_version = ">= 1.5.0"
   required_providers {
     azurerm = {
       source  = "hashicorp/azurerm"
       version = ">= 4.0, < 5.0"
     }
   }
-  required_version = ">= 1.5.0"
+}
+provider "azurerm" {
+  features {}
+  client_id       = "eaad5cae-b3ac-465f-ac46-d2491d9a2fe2"
+  tenant_id       = "9b916645-e01a-4318-a7c6-a8e90e3f53b5"
+  subscription_id = "38fe3474-4d82-4029-a49f-ba81a9ab017b"
 }
 
 resource "azurerm_resource_group" "this" {
@@ -56,7 +62,7 @@ resource "azurerm_role_definition" "custom_roles" {
 resource "azurerm_role_assignment" "role_assignments" {
   for_each           = var.role_assignments
   scope              = each.value.scope
-  role_definition_id = each.value.custom_role ? azurerm_role_definition.custom_roles[each.value.role_name].resource_id : each.value.role_definition_id
+  role_definition_id = each.value.custom_role ? azurerm_role_definition.custom_roles[each.value.role_name].id : each.value.role_definition_id
   principal_id       = each.value.principal_id
   principal_type     = each.value.principal_type
 }

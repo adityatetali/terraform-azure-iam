@@ -25,7 +25,7 @@ output "managed_identity_principal_ids" {
 
 output "custom_role_ids" {
   description = "Map of custom role IDs"
-  value       = { for k, v in azurerm_role_definition.custom_roles : k => v.resource_id }
+  value       = { for k, v in azurerm_role_definition.custom_roles : k => v.id }
 }
 
 output "role_assignment_ids" {
