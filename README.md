@@ -13,6 +13,18 @@ Terraform module that manages Azure IAM resources with a focus on clear inputs a
 - AzureRM provider >= 4.0, < 5.0
 - Azure credentials configured (e.g., via az login, environment variables, or a service principal)
 
+## Important: Provider Configuration
+
+**As of version 0.2.0**, this module no longer includes its own `provider "azurerm"` block. You must configure the provider in your root module:
+
+```hcl
+provider "azurerm" {
+  features {}
+}
+```
+
+This change was made to support `depends_on` and `for_each` with modules, which is not allowed when a module has its own provider configuration.
+
 ## Providers
 - hashicorp/azurerm >= 4.0, < 5.0
 
@@ -253,6 +265,24 @@ The module automatically manages resource dependencies using `depends_on`:
 3. **Role Assignments** wait for both Custom Roles and Managed Identities
 
 This ensures that when you assign a custom role to a managed identity, both resources already exist in Azure.
+
+### Using depends_on with Multiple Module Calls
+Since the provider block is now outside the module, you can use `depends_on` when calling this module multiple times:
+
+```hcl
+module "iam_resources" {
+  source = "app.terraform.io/adityatetaliorg/iam/azure"
+  # ... creates managed identities and custom roles
+}
+
+module "iam_assignments" {
+  source = "app.terraform.io/adityatetaliorg/iam/azure"
+  # ... creates role assignments
+  depends_on = [module.iam_resources]
+}
+```
+
+This pattern is useful when you need to reference outputs from one module call in another.
 
 ## Permissions
 - To create custom roles at subscription scope, the caller needs appropriate permissions (e.g., Owner) at that scope.
