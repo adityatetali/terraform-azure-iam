@@ -39,6 +39,10 @@ resource "azurerm_user_assigned_identity" "managed_identities" {
   resource_group_name = var.resource_group_name
   location            = var.location
   tags                = merge(var.tags, each.value.tags)
+
+  depends_on = [
+    azurerm_resource_group.this
+  ]
 }
 
 resource "azurerm_role_definition" "custom_roles" {
@@ -54,6 +58,10 @@ resource "azurerm_role_definition" "custom_roles" {
     data_actions     = lookup(each.value, "data_actions", [])
     not_data_actions = lookup(each.value, "not_data_actions", [])
   }
+
+  depends_on = [
+    azurerm_resource_group.this
+  ]
 }
 
 resource "azurerm_role_assignment" "role_assignments" {
@@ -63,4 +71,10 @@ resource "azurerm_role_assignment" "role_assignments" {
   role_definition_id   = each.value.custom_role ? null : each.value.role_definition_id
   principal_id         = each.value.principal_id
   principal_type       = each.value.principal_type
+
+  depends_on = [
+    azurerm_resource_group.this,
+    azurerm_role_definition.custom_roles,
+    azurerm_user_assigned_identity.managed_identities
+  ]
 }

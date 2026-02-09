@@ -241,10 +241,18 @@ module "iam" {
 
 ## Resource Behavior
 - Resource Group: Created only when create_resource_group = true; otherwise the module reads the existing RG via data.azurerm_resource_group.
-- Managed Identities: Created only when enable_managed_identities = true; set to false to skip creating managed identities.
-- Custom Roles: Created only when enable_custom_roles = true; set to false to skip creating custom roles. Roles are created under either the RG or subscription depending on custom_roles_scope, and assignable_scopes is set to the same scope.
-- Role Assignments: Created only when enable_role_assignments = true; set to false to skip creating role assignments. Uses role_definition_name when custom_role = true; uses role_definition_id when custom_role = false.
+- Managed Identities: Created only when enable_managed_identities = true; set to false to skip creating managed identities. Depends on Resource Group.
+- Custom Roles: Created only when enable_custom_roles = true; set to false to skip creating custom roles. Roles are created under either the RG or subscription depending on custom_roles_scope, and assignable_scopes is set to the same scope. Depends on Resource Group.
+- Role Assignments: Created only when enable_role_assignments = true; set to false to skip creating role assignments. Uses role_definition_name when custom_role = true; uses role_definition_id when custom_role = false. Depends on Resource Group, Custom Roles, and Managed Identities.
 - Subscription Context: subscription_id (if provided) selects a target subscription; otherwise uses the active one.
+
+### Dependency Chain
+The module automatically manages resource dependencies using `depends_on`:
+1. **Resource Group** is created first (if enabled)
+2. **Managed Identities** and **Custom Roles** wait for Resource Group creation
+3. **Role Assignments** wait for both Custom Roles and Managed Identities
+
+This ensures that when you assign a custom role to a managed identity, both resources already exist in Azure.
 
 ## Permissions
 - To create custom roles at subscription scope, the caller needs appropriate permissions (e.g., Owner) at that scope.
@@ -265,4 +273,58 @@ module "iam" {
 ## Versioning
 - Terraform >= 1.5.0
 - Provider azurerm >= 4.0, < 5.0
+
+## Terraform Cloud (TFC) Support
+
+This module is fully compatible with Terraform Cloud (TFC).
+
+### Quick Setup
+
+1. **Backend Configuration** - The `backend.tf` file is pre-configured for TFC:
+   ```hcl
+   terraform {
+     cloud {
+       organization = "adityatetaliorg"
+       workspaces {
+         name = "terraform-azure-iam-module"
+       }
+     }
+   }
+   ```
+
+2. **Upload Variables** - Go to TFC UI and add:
+   - **Environment Variables** (mark as Sensitive):
+     - `ARM_CLIENT_ID`
+     - `ARM_CLIENT_SECRET`
+     - `ARM_SUBSCRIPTION_ID`
+     - `ARM_TENANT_ID`
+   
+   - **Terraform Variables**:
+     - `resource_group_name`
+     - `enable_managed_identities`, `enable_custom_roles`, `enable_role_assignments`
+     - `managed_identities`, `custom_roles`, `role_assignments`
+     - `tags`
+
+3. **Run** - Execute via TFC UI or CLI:
+   ```bash
+   terraform login
+   terraform init
+   terraform plan
+   terraform apply
+   ```
+
+### Files for TFC
+
+- `backend.tf` - TFC backend configuration
+- `terraform.tfvars.tfc` - Ready-to-use tfvars template for TFC
+- `tfc-sensitive-variables.tfvars` - Template for sensitive values (do not commit)
+- `TFC-SETUP.md` - Detailed TFC setup instructions
+
+### Important Notes
+
+- **Never commit `.tfvars` files with sensitive data** - They are excluded in `.gitignore`
+- Always mark sensitive variables in TFC UI with the "Sensitive" checkbox
+- Use the `examples/*.tfvars` files as templates for different scenarios
+
+For detailed TFC setup instructions, see [TFC-SETUP.md](TFC-SETUP.md).
 
