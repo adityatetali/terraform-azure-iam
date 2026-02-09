@@ -1,42 +1,63 @@
-# terraform-azure-iam
-Module to manage Azure IAM resources (module)
+# Terraform Azure IAM Module
+## Features
 
-## Azure IAM Module
+Terraform module that manages Azure IAM resources with a focus on clear inputs and validation:
+- Create or use an existing Resource Group
+- Create user-assigned managed identities (with enable/disable toggle)
+- Create custom RBAC roles at either Resource Group or Subscription scope (with enable/disable toggle)
+- Assign roles to principals (users, groups, service principals, or managed identities) (with enable/disable toggle)
+- Enforce consistent tagging across resources
 
-This Terraform module manages Azure Identity and Access Management (IAM) resources, including user-assigned managed identities, custom role definitions, and role assignments.
+## Requirements
+- Terraform >= 1.5.0
+- AzureRM provider >= 4.0, < 5.0
+- Azure credentials configured (e.g., via az login, environment variables, or a service principal)
 
-## Features ✅
-
-- User-assigned managed identities
-- Custom role definitions
-- Role assignments for principals
-- Tag propagation across created resources
+## Providers
+- hashicorp/azurerm >= 4.0, < 5.0
 
 ## Usage
 
-```
+### Example: Using the published module (from Terraform Cloud/Registry)
+```hcl
+terraform {
+  cloud {
+    organization = "adityatetaliorg"
+    workspaces {
+      name = "terraform-azure-iam-cli"
+    }
+  }
+}
+
 module "iam" {
-  source = "./"
+  source                = "app.terraform.io/adityatetaliorg/iam/azure"
+  version               = "0.1.7"
 
-  resource_group_name = "rg-iam-prod"
-  location            = "East US"
+  # Set to false if RG exists already
+  create_resource_group = false
+  resource_group_name   = "rg-iam-prod"
+  location              = "Central US"
 
+  # Set to false to skip creating managed identities
+  enable_managed_identities = true
   managed_identities = {
     "app-identity" = {
       tags = {
-        Environment   = "Production"
-        Application   = "WebApp"
-        Project_code  = "PRJ001"
-        Agency        = "ExampleAgency"
-        Owner         = "team@example.com"
+        Environment  = "Production"
+        Application  = "WebApp"
+        Project_code = "PRJ001"
+        Agency       = "ExampleAgency"
+        Owner        = "team@example.com"
       }
     }
   }
 
+  # Set to false to skip creating custom roles
+  enable_custom_roles = true
   custom_roles = {
     "custom-reader" = {
       description = "Custom read-only role for specific resources"
-      actions     = [
+      actions = [
         "Microsoft.Storage/storageAccounts/blobServices/containers/read",
         "Microsoft.Storage/storageAccounts/blobServices/read"
       ]
@@ -44,128 +65,204 @@ module "iam" {
   }
 
   role_assignments = {
+    # Assign the custom role by name at a specific scope
     "storage-reader" = {
-      scope              = "/subscriptions/.../resourceGroups/rg-storage"
-      custom_role        = true
-      role_name          = "custom-reader"
-      principal_id       = "00000000-0000-0000-0000-000000000000"
+      scope          = "/subscriptions/38fe3474-4d82-4029-a49f-ba81a9ab017b/resourceGroups/rg-iam-prod"
+      custom_role    = true
+      role_name      = "custom-reader"          # Must match a key in custom_roles
+      principal_id   = "9e9ef130-b8b7-47ee-bfc5-9a6b19383a23"
+      principal_type = "User"                   # e.g., "User", "Group", "ServicePrincipal", "MSI"
+    }
+  }
+
+  tags = {
+    Application  = "WebApp"
+    Agency       = "ExampleAgency"
+    Project_code = "PRJ001"
+    Environment  = "Production"
+    Owner        = "team@example.com"
+  }
+}
+```
+
+### Example: Assign a built-in role by ID
+```hcl
+module "iam" {
+  source = "./" # local path to this module if used directly
+
+  create_resource_group = true
+  resource_group_name   = "rg-iam-dev"
+  location              = "East US"
+
+  managed_identities = {}
+  custom_roles       = {}
+
+  role_assignments = {
+    builtin-reader = {
+      scope              = "/subscriptions/<sub-id>/resourceGroups/rg-iam-dev"
+      custom_role        = false
+      role_definition_id = "/subscriptions/<sub-id>/providers/Microsoft.Authorization/roleDefinitions/acdd72a7-3385-48ef-bd42-f606fba81ae7" # Reader
+      principal_id       = "<principal-object-id>"
       principal_type     = "ServicePrincipal"
     }
   }
 
   tags = {
-    Application = "WebApp"
-    Agency      = "ExampleAgency"
-    Project_code= "PRJ001"
-    Environment = "Production"
-    Owner       = "team@example.com"
+    Application  = "ExampleApp"
+    Agency       = "ExampleAgency"
+    Project_code = "PRJ002"
+    Environment  = "Development"
+    Owner        = "team@example.com"
   }
 }
 ```
 
----
-
-## Inputs
-
-| Name | Description | Type | Default | Required |
-|------|-------------|------|---------|----------|
-| resource_group_name | Name of the resource group | `string` | n/a | yes |
-| location | Azure region for deployment | `string` | `"East US"` | no |
-| create_resource_group | Whether to create a new resource group or use existing one | `bool` | `true` | no |
-| managed_identities | Map of user-assigned managed identities to create | `map(object({ tags = map(string) }))` | `{}` | no |
-| custom_roles | Map of custom roles to create | `map(object({ description = string, actions = list(string) }))` | `{}` | no |
-| role_assignments | Map of role assignments to create | `map(object({ scope = string, role_name = optional(string), role_definition_id = optional(string), custom_role = optional(bool), principal_id = string, principal_type = string }))` | `{}` | no |
-| subscription_id | Optional subscription id to target for subscription-level operations | `string` | `null` | no |
-| custom_roles_scope | Scope for custom role creation (`resource_group` or `subscription`) | `string` | `"resource_group"` | no |
-| tags | Tags to apply to all resources (must include Application, Agency, Project_code, Environment, Owner) | `map(string)` | n/a | yes |
-
----
-
-## Outputs
-
-| Name | Description |
-|------|-------------|
-| resource_group_id | ID of the resource group |
-| resource_group_name | Name of the resource group |
-| managed_identity_ids | Map of managed identity IDs |
-| managed_identity_client_ids | Map of managed identity client IDs |
-| managed_identity_principal_ids | Map of managed identity principal IDs |
-| custom_role_ids | Map of custom role IDs |
-| role_assignment_ids | Map of role assignment IDs |
-| subscription_id | Subscription ID used (selected or current) |
-| subscription_scope | Subscription scope used |
-
----
-
-## Requirements
-
-- Terraform >= 1.5.0
-- AzureRM provider >= 4.0 (4.x)
-
----
-
-## Handling Existing Resources
-
-### Resource Group Already Exists
-
-If the resource group already exists in Azure and you want Terraform to manage it, you have two options:
-
-#### Option 1: Use Existing Resource Group (Recommended)
-Set `create_resource_group = false` in your module configuration:
-
+### Example: Disable specific features
 ```hcl
 module "iam" {
-  source = "./"
-  
-  create_resource_group = false  # Reference existing RG
-  resource_group_name   = "rg-iam-prod"
-  location              = "Central US"
-  
-  # ... rest of configuration
+  source                = "app.terraform.io/adityatetaliorg/iam/azure"
+  version               = "0.1.7"
+
+  create_resource_group       = false
+  resource_group_name         = "rg-existing"
+  location                    = "East US"
+
+  # Disable managed identities and custom roles, only create role assignments
+  enable_managed_identities   = false
+  enable_custom_roles         = false
+  enable_role_assignments     = true
+
+  managed_identities = {}  # Ignored when enable_managed_identities = false
+  custom_roles       = {}  # Ignored when enable_custom_roles = false
+
+  role_assignments = {
+    "builtin-contributor" = {
+      scope              = "/subscriptions/<sub-id>/resourceGroups/rg-existing"
+      custom_role        = false
+      role_definition_id = "/subscriptions/<sub-id>/providers/Microsoft.Authorization/roleDefinitions/b24988ac-6180-42a0-ab88-20f7382dd24c" # Contributor
+      principal_id       = "<principal-object-id>"
+      principal_type     = "ServicePrincipal"
+    }
+  }
+
+  tags = {
+    Application  = "ExampleApp"
+    Agency       = "ExampleAgency"
+    Project_code = "PRJ003"
+    Environment  = "Production"
+    Owner        = "team@example.com"
+  }
 }
 ```
 
-This tells the module to reference the existing resource group instead of attempting to create a new one.
+## Inputs
 
-#### Option 2: Import Existing Resource Group into State
-If you want Terraform to track the existing resource group, run:
+- resource_group_name (string)
+  - Description: Name of the resource group (created or referenced).
+  - Required.
 
-```bash
-terraform import 'module.iam.azurerm_resource_group.this[0]' '/subscriptions/<SUBSCRIPTION_ID>/resourceGroups/<RG_NAME>'
-```
+- location (string)
+  - Description: Azure region for deployment.
+  - Default: "East US"
 
-Replace `<SUBSCRIPTION_ID>` and `<RG_NAME>` with your actual subscription ID and resource group name.
+- create_resource_group (bool)
+  - Description: Whether to create a new resource group or use an existing one.
+  - Default: true
 
----
+- enable_managed_identities (bool)
+  - Description: Whether to create user-assigned managed identities.
+  - Default: true
 
-## Troubleshooting Guide
+- managed_identities (map(object({ tags = map(string) })))
+  - Description: Map of user-assigned managed identities to create. The key is the identity name; the value supplies additional tags. Tags passed here are merged with the top-level tags; values in the identity-specific map override on conflict.
+  - Default: {}
 
-### Role Assignment Errors
+- enable_custom_roles (bool)
+  - Description: Whether to create custom RBAC roles.
+  - Default: true
 
-**Error: `BadRequestFormat` or `UnmatchedPrincipalType`**
+- custom_roles (map(object({
+    description      = string
+    actions          = list(string)
+    not_actions      = optional(list(string), [])
+    data_actions     = optional(list(string), [])
+    not_data_actions = optional(list(string), [])
+  })))
+  - Description: Map of custom roles to create. The map key is the role name. Roles are created at the scope determined by custom_roles_scope.
+  - Default: {}
 
-This occurs when:
-1. The `principal_type` doesn't match the actual Azure AD object type
-2. The principal ID is incorrectly formatted
+- enable_role_assignments (bool)
+  - Description: Whether to create role assignments.
+  - Default: true
 
-**Solution:**
-- Verify the principal exists in Azure AD: `az ad user show --id <principal-id>` (for users) or `az ad sp show --id <principal-id>` (for service principals)
-- Ensure `principal_type` is one of: `"User"`, `"Group"`, or `"ServicePrincipal"`
-- Use the correct object ID (UUID format without hyphens or with hyphens consistently)
+- role_assignments (map(object({
+    scope              = string
+    role_name          = optional(string, "")
+    role_definition_id = optional(string, "")
+    custom_role        = optional(bool, false)
+    principal_id       = string
+    principal_type     = string
+  })))
+  - Description: Map of role assignments to create. For each entry, either:
+    - Set custom_role = true and provide role_name (matching a key in custom_roles), or
+    - Provide role_definition_id for a built-in role and leave custom_role as false.
+  - Validation:
+    - Each assignment must have either (custom_role = true and role_name != "") OR (custom_role = false and role_definition_id != "").
+    - scope and principal_id must be non-empty.
+  - Default: {}
 
-### Custom Role Definition Issues
+- tags (map(string))
+  - Description: Map of tags to apply to all resources. Must include the following keys (validation enforced):
+    - Application
+    - Agency
+    - Project_code
+    - Environment
+    - Owner
 
-**Error: `Unsupported attribute "resource_id"`**
+- subscription_id (string|null)
+  - Description: Optional subscription id to target for subscription-level operations. If null, uses current subscription from the provider context.
+  - Default: null
 
-The `azurerm_role_definition` resource uses `id` (not `resource_id`) for output. The module correctly handles this by splitting the composite ID to extract the role definition ID for assignments.
+- custom_roles_scope (string)
+  - Description: Scope for custom role creation; one of: "resource_group", "subscription".
+  - Default: "resource_group"
 
----
+## Outputs
 
-## Notes 💡
+- resource_group_id: ID of the resource group
+- resource_group_name: Name of the resource group
+- managed_identity_ids: Map of managed identity IDs (empty if enable_managed_identities = false)
+- managed_identity_client_ids: Map of managed identity client IDs (empty if enable_managed_identities = false)
+- managed_identity_principal_ids: Map of managed identity principal IDs (empty if enable_managed_identities = false)
+- custom_role_ids: Map of custom role IDs (empty if enable_custom_roles = false)
+- role_assignment_ids: Map of role assignment IDs (empty if enable_role_assignments = false)
+- subscription_id: Subscription ID used (selected or current)
+- subscription_scope: Subscription scope used
 
-- Ensure tags include the required keys: `Application`, `Agency`, `Project_code`, `Environment`, `Owner`.
-- Custom roles can be created at the resource group or subscription scope via `custom_roles_scope`.
-- Valid values for `principal_type` are: `"User"`, `"Group"`, or `"ServicePrincipal"`. Do not use `"Member"`.
-- The `principal_id` must be a valid Azure AD object ID. Use `az ad user list --query "[].id"` to find user IDs or `az ad sp list --query "[].id"` for service principals.
-- When using custom roles with role assignments, the module automatically extracts the correct role definition ID from the composite format.
+## Resource Behavior
+- Resource Group: Created only when create_resource_group = true; otherwise the module reads the existing RG via data.azurerm_resource_group.
+- Managed Identities: Created only when enable_managed_identities = true; set to false to skip creating managed identities.
+- Custom Roles: Created only when enable_custom_roles = true; set to false to skip creating custom roles. Roles are created under either the RG or subscription depending on custom_roles_scope, and assignable_scopes is set to the same scope.
+- Role Assignments: Created only when enable_role_assignments = true; set to false to skip creating role assignments. Uses role_definition_name when custom_role = true; uses role_definition_id when custom_role = false.
+- Subscription Context: subscription_id (if provided) selects a target subscription; otherwise uses the active one.
+
+## Permissions
+- To create custom roles at subscription scope, the caller needs appropriate permissions (e.g., Owner) at that scope.
+- To create role assignments, the caller usually needs Owner or User Access Administrator on the target scope.
+- To create managed identities and (optionally) resource groups, the caller needs the corresponding resource permissions at the RG scope.
+
+## Getting Started
+1. Authenticate to Azure (e.g., az login or set ARM_* env vars).
+2. terraform init
+3. terraform plan
+4. terraform apply
+
+## Notes
+- Tag merging for managed identities is merge(var.tags, each.value.tags). Identity-level tags override top-level tags on key conflicts.
+- Ensure principal_type matches AzureRM expectations (e.g., "User", "Group", "ServicePrincipal", "MSI").
+- Provider version pinned to >= 4.0, < 5.0 per module constraints.
+
+## Versioning
+- Terraform >= 1.5.0
+- Provider azurerm >= 4.0, < 5.0
 

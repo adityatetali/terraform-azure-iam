@@ -34,7 +34,7 @@ locals {
 }
 
 resource "azurerm_user_assigned_identity" "managed_identities" {
-  for_each            = var.managed_identities
+  for_each            = var.enable_managed_identities ? var.managed_identities : {}
   name                = each.key
   resource_group_name = var.resource_group_name
   location            = var.location
@@ -42,7 +42,7 @@ resource "azurerm_user_assigned_identity" "managed_identities" {
 }
 
 resource "azurerm_role_definition" "custom_roles" {
-  for_each          = var.custom_roles
+  for_each          = var.enable_custom_roles ? var.custom_roles : {}
   name              = each.key
   scope             = var.custom_roles_scope == "subscription" ? local.subscription_scope : local.resource_group_id
   description       = each.value.description
@@ -57,10 +57,10 @@ resource "azurerm_role_definition" "custom_roles" {
 }
 
 resource "azurerm_role_assignment" "role_assignments" {
-  for_each           = var.role_assignments
-  scope              = each.value.scope
+  for_each             = var.enable_role_assignments ? var.role_assignments : {}
+  scope                = each.value.scope
   role_definition_name = each.value.custom_role ? each.value.role_name : null
   role_definition_id   = each.value.custom_role ? null : each.value.role_definition_id
-  principal_id       = each.value.principal_id
-  principal_type     = each.value.principal_type
+  principal_id         = each.value.principal_id
+  principal_type       = each.value.principal_type
 }

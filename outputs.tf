@@ -10,27 +10,27 @@ output "resource_group_name" {
 
 output "managed_identity_ids" {
   description = "Map of managed identity IDs"
-  value       = { for k, v in azurerm_user_assigned_identity.managed_identities : k => v.id }
+  value       = var.enable_managed_identities ? { for k, v in azurerm_user_assigned_identity.managed_identities : k => v.id } : {}
 }
 
 output "managed_identity_client_ids" {
   description = "Map of managed identity client IDs"
-  value       = { for k, v in azurerm_user_assigned_identity.managed_identities : k => v.client_id }
+  value       = var.enable_managed_identities ? { for k, v in azurerm_user_assigned_identity.managed_identities : k => v.client_id } : {}
 }
 
 output "managed_identity_principal_ids" {
   description = "Map of managed identity principal IDs"
-  value       = { for k, v in azurerm_user_assigned_identity.managed_identities : k => v.principal_id }
+  value       = var.enable_managed_identities ? { for k, v in azurerm_user_assigned_identity.managed_identities : k => v.principal_id } : {}
 }
 
 output "custom_role_ids" {
   description = "Map of custom role IDs"
-  value       = { for k, v in azurerm_role_definition.custom_roles : k => v.id }
+  value       = var.enable_custom_roles ? { for k, v in azurerm_role_definition.custom_roles : k => v.id } : {}
 }
 
 output "role_assignment_ids" {
   description = "Map of role assignment IDs"
-  value       = { for k, v in azurerm_role_assignment.role_assignments : k => v.id }
+  value       = var.enable_role_assignments ? { for k, v in azurerm_role_assignment.role_assignments : k => v.id } : {}
 }
 
 output "subscription_id" {

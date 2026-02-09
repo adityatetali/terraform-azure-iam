@@ -6,11 +6,17 @@ variable "resource_group_name" {
 variable "location" {
   description = "Azure region for deployment"
   type        = string
-  default     = "East US"
+  default     = "Central US"
 }
 
 variable "create_resource_group" {
   description = "Whether to create a new resource group or use existing one"
+  type        = bool
+  default     = true
+}
+
+variable "enable_managed_identities" {
+  description = "Whether to create user-assigned managed identities"
   type        = bool
   default     = true
 }
@@ -23,6 +29,12 @@ variable "managed_identities" {
   default = {}
 }
 
+variable "enable_custom_roles" {
+  description = "Whether to create custom RBAC roles"
+  type        = bool
+  default     = true
+}
+
 variable "custom_roles" {
   description = "Map of custom roles to create"
   type = map(object({
@@ -33,6 +45,12 @@ variable "custom_roles" {
     not_data_actions = optional(list(string), [])
   }))
   default = {}
+}
+
+variable "enable_role_assignments" {
+  description = "Whether to create role assignments"
+  type        = bool
+  default     = true
 }
 
 variable "role_assignments" {
