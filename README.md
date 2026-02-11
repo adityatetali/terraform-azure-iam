@@ -169,75 +169,76 @@ module "iam" {
 
 ## Inputs
 
-- resource_group_name (string)
-  - Description: Name of the resource group (created or referenced).
-  - Required.
+| Name | Type | Description | Default | Required |
+|------|------|-------------|---------|----------|
+| resource_group_name | string | Name of the resource group (created or referenced). | - | yes |
+| location | string | Azure region for deployment. | "East US" | no |
+| create_resource_group | bool | Whether to create a new resource group or use an existing one. | true | no |
+| enable_managed_identities | bool | Whether to create user-assigned managed identities. | true | no |
+| managed_identities | map(object) | Map of user-assigned managed identities to create. The key is the identity name; the value supplies additional tags. Tags passed here are merged with the top-level tags. | {} | no |
+| enable_custom_roles | bool | Whether to create custom RBAC roles. | true | no |
+| custom_roles | map(object) | Map of custom roles to create. The map key is the role name. Roles are created at the scope determined by custom_roles_scope. | {} | no |
+| enable_role_assignments | bool | Whether to create role assignments. | true | no |
+| role_assignments | map(object) | Map of role assignments to create. Use custom_role=true with role_name for custom roles, or role_definition_id for built-in roles. | {} | no |
+| tags | map(string) | Map of tags to apply to all resources. Must include: Application, Agency, Project_code, Environment, Owner. | - | yes |
+| subscription_id | string | Optional subscription id to target for subscription-level operations. If null, uses current subscription. | null | no |
+| custom_roles_scope | string | Scope for custom role creation: "resource_group" or "subscription". | "resource_group" | no |
 
-- location (string)
-  - Description: Azure region for deployment.
-  - Default: "East US"
+### Detailed Input Specifications
 
-- create_resource_group (bool)
-  - Description: Whether to create a new resource group or use an existing one.
-  - Default: true
+#### managed_identities
+Type: `map(object({ tags = map(string) }))`
 
-- enable_managed_identities (bool)
-  - Description: Whether to create user-assigned managed identities.
-  - Default: true
+Map of user-assigned managed identities to create. The key is the identity name; the value supplies additional tags. Tags passed here are merged with the top-level tags; values in the identity-specific map override on conflict.
 
-- managed_identities (map(object({ tags = map(string) })))
-  - Description: Map of user-assigned managed identities to create. The key is the identity name; the value supplies additional tags. Tags passed here are merged with the top-level tags; values in the identity-specific map override on conflict.
-  - Default: {}
+```hcl
+managed_identities = {
+  "app-identity" = {
+    tags = {
+      Component = "WebApp"
+    }
+  }
+}
+```
 
-- enable_custom_roles (bool)
-  - Description: Whether to create custom RBAC roles.
-  - Default: true
+#### custom_roles
+Type: `map(object({ description = string, actions = list(string), not_actions = optional(list(string), []), data_actions = optional(list(string), []), not_data_actions = optional(list(string), []) }))`
 
-- custom_roles (map(object({
-    description      = string
-    actions          = list(string)
-    not_actions      = optional(list(string), [])
-    data_actions     = optional(list(string), [])
-    not_data_actions = optional(list(string), [])
-  })))
-  - Description: Map of custom roles to create. The map key is the role name. Roles are created at the scope determined by custom_roles_scope.
-  - Default: {}
+Map of custom roles to create. The map key is the role name. Roles are created at the scope determined by custom_roles_scope.
 
-- enable_role_assignments (bool)
-  - Description: Whether to create role assignments.
-  - Default: true
+```hcl
+custom_roles = {
+  "custom-reader" = {
+    description = "Custom read-only role"
+    actions = [
+      "Microsoft.Storage/storageAccounts/read"
+    ]
+  }
+}
+```
 
-- role_assignments (map(object({
-    scope              = string
-    role_name          = optional(string, "")
-    role_definition_id = optional(string, "")
-    custom_role        = optional(bool, false)
-    principal_id       = string
-    principal_type     = string
-  })))
-  - Description: Map of role assignments to create. For each entry, either:
-    - Set custom_role = true and provide role_name (matching a key in custom_roles), or
-    - Provide role_definition_id for a built-in role and leave custom_role as false.
-  - Validation:
-    - Each assignment must have either (custom_role = true and role_name != "") OR (custom_role = false and role_definition_id != "").
-    - scope and principal_id must be non-empty.
-  - Default: {}
+#### role_assignments
+Type: `map(object({ scope = string, role_name = optional(string, ""), role_definition_id = optional(string, ""), custom_role = optional(bool, false), principal_id = string, principal_type = string }))`
 
-- tags (map(string))
-  - Description: Map of tags to apply to all resources. Must include the following keys (validation enforced):
-    - Application
-    - Agency
-    - Project_code
-    - Environment
-    - Owner
+Map of role assignments to create. For each entry, either:
+- Set `custom_role = true` and provide `role_name` (matching a key in custom_roles), or
+- Provide `role_definition_id` for a built-in role and leave `custom_role = false`.
 
-- subscription_id (string|null)
-  - Description: Optional subscription id to target for subscription-level operations. If null, uses current subscription from the provider context.
-  - Default: null
+**Validation:**
+- Each assignment must have either (`custom_role = true` and `role_name != ""`) OR (`custom_role = false` and `role_definition_id != ""`).
+- `scope` and `principal_id` must be non-empty.
 
-- custom_roles_scope (string)
-  - Description: Scope for custom role creation; one of: "resource_group", "subscription".
-  - Default: "resource_group"
+```hcl
+role_assignments = {
+  "assignment-1" = {
+    scope              = "/subscriptions/xxx/resourceGroups/rg"
+    custom_role        = true
+    role_name          = "custom-reader"
+    principal_id       = "xxx"
+    principal_type     = "User"
+  }
+}
+```
 
 ## Outputs
 
